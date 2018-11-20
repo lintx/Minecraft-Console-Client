@@ -53,6 +53,8 @@ namespace MinecraftClient.Protocol.Handlers
 
         int currentDimension;
 
+        private System.Timers.Timer timeout = new System.Timers.Timer();
+
         public Protocol18Handler(TcpClient Client, int ProtocolVersion, IMinecraftComHandler Handler, ForgeInfo ForgeInfo)
         {
             ConsoleIO.SetAutoCompleteEngine(this);
@@ -61,11 +63,21 @@ namespace MinecraftClient.Protocol.Handlers
             this.protocolversion = ProtocolVersion;
             this.handler = Handler;
             this.forgeInfo = ForgeInfo;
+            timeout.Elapsed += new System.Timers.ElapsedEventHandler(TimeOut);
+            timeout.Interval = 30000;
+            timeout.AutoReset = false;
+            timeout.Enabled = true;
+            timeout.Stop();
         }
 
         private Protocol18Handler(TcpClient Client)
         {
             this.c = Client;
+        }
+
+        private void TimeOut(object source, System.Timers.ElapsedEventArgs e)
+        {
+            handler.OnConnectionLost(ChatBot.DisconnectReason.InGameKick, "time out");
         }
 
         /// <summary>
@@ -578,6 +590,8 @@ namespace MinecraftClient.Protocol.Handlers
             {
                 case PacketIncomingType.KeepAlive:
                     SendPacket(PacketOutgoingType.KeepAlive, packetData);
+                    timeout.Stop();
+                    timeout.Start();
                     break;
                 case PacketIncomingType.JoinGame:
                     handler.OnGameJoined();
