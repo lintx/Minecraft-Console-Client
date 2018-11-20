@@ -425,7 +425,15 @@ namespace MinecraftClient
                         if (Console.CursorTop > 0)
                             Console.CursorTop--;
                     }
-                    else Console.Write("\b \b");
+                    else
+                    {
+                        String right = buffer.Substring(buffer.Length - 1, 1);
+                        int count = System.Text.Encoding.Default.GetByteCount(right);
+                        for (int i = 0; i < count; i++)
+                        {
+                            Console.Write("\b \b");
+                        }
+                    }
                 }
                 catch (ArgumentOutOfRangeException) { /* Console was resized!? */ }
                 buffer = buffer.Substring(0, buffer.Length - 1);
