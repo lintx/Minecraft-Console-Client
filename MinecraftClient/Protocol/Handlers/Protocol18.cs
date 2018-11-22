@@ -75,9 +75,11 @@ namespace MinecraftClient.Protocol.Handlers
             this.c = Client;
         }
 
+        public int GetProtocolVersion() { return protocolversion; }
+
         private void TimeOut(object source, System.Timers.ElapsedEventArgs e)
         {
-            handler.OnConnectionLost(ChatBot.DisconnectReason.InGameKick, "time out");
+            handler.OnConnectionLost(ChatBot.DisconnectReason.ConnectionLost, "time out");
         }
 
         /// <summary>
@@ -172,6 +174,14 @@ namespace MinecraftClient.Protocol.Handlers
             KickPacket,
             NetworkCompressionTreshold,
             ResourcePackSend,
+            SpawnEntity,
+            EntityTeleport,
+            EntityMoveLook,
+            EntityDestroy,
+            WindowItems,
+            SetSlot,
+            HeldItemSlot,
+            UpdateHealth,
             UnknownPacket
         }
 
@@ -387,6 +397,17 @@ namespace MinecraftClient.Protocol.Handlers
                     case 0x1B: return PacketIncomingType.KickPacket;
                     //NetworkCompressionTreshold removed in 1.9
                     case 0x37: return PacketIncomingType.ResourcePackSend;
+                    //add entity pack
+                    case 0x00: return PacketIncomingType.SpawnEntity;
+                    case 0x29: return PacketIncomingType.EntityMoveLook;
+                    case 0x35: return PacketIncomingType.EntityDestroy;
+                    case 0x50: return PacketIncomingType.EntityTeleport;
+                    //add item pack
+                    case 0x15: return PacketIncomingType.WindowItems;
+                    case 0x17: return PacketIncomingType.SetSlot;
+                    case 0x3d: return PacketIncomingType.HeldItemSlot;
+                    //add health
+                    case 0x44: return PacketIncomingType.UpdateHealth;
                     default: return PacketIncomingType.UnknownPacket;
                 }
             }
@@ -406,7 +427,9 @@ namespace MinecraftClient.Protocol.Handlers
             TabComplete,
             PlayerPosition,
             PlayerPositionAndLook,
-            TeleportConfirm
+            TeleportConfirm,
+            UseItem,
+            HeldItemSlot
         }
 
         /// <summary>
@@ -559,6 +582,9 @@ namespace MinecraftClient.Protocol.Handlers
                     case PacketOutgoingType.PlayerPosition: return 0x10;
                     case PacketOutgoingType.PlayerPositionAndLook: return 0x11;
                     case PacketOutgoingType.TeleportConfirm: return 0x00;
+                    //add use item and switch item
+                    case PacketOutgoingType.HeldItemSlot: return 0x21;
+                    case PacketOutgoingType.UseItem: return 0x2a;
                 }
             }
 
@@ -1022,6 +1048,79 @@ namespace MinecraftClient.Protocol.Handlers
                     SendPacket(PacketOutgoingType.ResourcePackStatus, concatBytes(responseHeader, getVarInt(3))); //Accepted pack
                     SendPacket(PacketOutgoingType.ResourcePackStatus, concatBytes(responseHeader, getVarInt(0))); //Successfully loaded
                     break;
+                case PacketIncomingType.SpawnEntity:
+                    int entityId = readNextVarInt(packetData);
+                    Guid objectUUID = readNextUUID(packetData);
+                    byte entityType = readNextByte(packetData);
+                    Location entityLocation = Location.Zero;
+                    entityLocation.X = readNextDouble(packetData);
+                    entityLocation.Y = readNextDouble(packetData);
+                    entityLocation.Z = readNextDouble(packetData);
+                    handler.OnSpawnEntity(entityId, entityType, objectUUID, entityLocation);
+                    break;
+                case PacketIncomingType.EntityMoveLook:
+                    entityId = readNextVarInt(packetData);
+                    short dX = readNextShort(packetData);
+                    short dY = readNextShort(packetData);
+                    short dZ = readNextShort(packetData);
+                    handler.OnEntityMoveLook(entityId, dX, dY, dZ);
+                    break;
+                case PacketIncomingType.EntityDestroy:
+                    int entityCount = readNextVarInt(packetData);
+                    int[] entitys = new int[entityCount];
+                    for (int i = 0; i < entityCount; i++)
+                    { 
+                        entitys[0] = readNextVarInt(packetData);
+                    }
+                    handler.OnEntityDestroy(entitys);
+                    break;
+                case PacketIncomingType.EntityTeleport:
+                    entityId = readNextVarInt(packetData);
+                    SendPacket(PacketOutgoingType.TeleportConfirm, getVarInt(entityId));
+                    break;
+                case PacketIncomingType.WindowItems:
+                    break;
+                case PacketIncomingType.SetSlot:
+                    byte windowId = readNextByte(packetData);
+                    short slot = readNextShort(packetData);
+                    short itemId = 0;
+                    short itemCount = 0;
+                    if (packetData.Count > 3) {
+                        readNextByte(packetData);
+                        List<byte> item = new List<byte>();
+                        while (true)
+                        {
+                            byte tmp = readNextByte(packetData);
+                            if (tmp == 0x00) break;
+                            item.Add(tmp);
+                        }
+                        if (packetData.Count > 0 && item[item.Count - 1] == 0x0a) {
+                            item.RemoveAt(item.Count - 1);
+                        }
+                        if (item.Count == 2) {
+                            itemId = (short)item[0];
+                            itemCount = (short)item[1];
+                        }
+                        else if (item.Count == 3)
+                        {
+                            itemId = (short)(item[0] + ((item[1] - 1) << 7));
+                            itemCount = (short)item[2];
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                    handler.OnSetSlot(windowId, slot, itemId, itemCount);
+                    break;
+                case PacketIncomingType.HeldItemSlot:
+                    handler.OnHeldItemSlot(readNextByte(packetData));
+                    break;
+                case PacketIncomingType.UpdateHealth:
+                    float health = readNextFloat(packetData);
+                    int food = readNextVarInt(packetData);
+                    float foodSaturation = readNextFloat(packetData);
+                    handler.OnUpdateHealth(health, food, foodSaturation);
+                    break;
                 default:
                     return false; //Ignored packet
             }
@@ -1421,6 +1520,13 @@ namespace MinecraftClient.Protocol.Handlers
             return BitConverter.ToDouble(rawValue, 0);
         }
 
+        private static float readNextFloat(List<byte> cache)
+        {
+            byte[] rawValue = readData(4, cache);
+            Array.Reverse(rawValue);
+            return BitConverter.ToSingle(rawValue, 0);
+        }
+
         /// <summary>
         /// Read an integer from the network
         /// </summary>
@@ -1506,6 +1612,19 @@ namespace MinecraftClient.Protocol.Handlers
                 paramInt = (int)(((uint)paramInt) >> 7);
             }
             bytes.Add((byte)paramInt);
+            return bytes.ToArray();
+        }
+
+        private static byte[] getShort(short paramShort)
+        {
+            List<byte> bytes = new List<byte>();
+            while ((paramShort & -128) != 0)
+            {
+                bytes.Add((byte)(paramShort & 127 | 128));
+                paramShort = (short)((paramShort) >> 7);
+            }
+            bytes.Add((byte)paramShort);
+            if (bytes.Count == 1) bytes.Insert(0,0);
             return bytes.ToArray();
         }
 
@@ -1959,6 +2078,29 @@ namespace MinecraftClient.Protocol.Handlers
                     SendPacket(PacketOutgoingType.PluginMessage, concatBytes(getString(channel), data));
                 }
 
+                return true;
+            }
+            catch (SocketException) { return false; }
+            catch (System.IO.IOException) { return false; }
+        }
+
+        public bool SendHeldItemSlot(short slotId = 0)
+        {
+            try
+            {
+                SendPacket(PacketOutgoingType.HeldItemSlot, getShort(slotId));
+                handler.OnHeldItemSlot(slotId);
+                return true;
+            }
+            catch (SocketException) { return false; }
+            catch (System.IO.IOException) { return false; }
+        }
+
+        public bool SendUseItem(int hand = 0)
+        {
+            try
+            {
+                SendPacket(PacketOutgoingType.UseItem, getVarInt(hand));
                 return true;
             }
             catch (SocketException) { return false; }

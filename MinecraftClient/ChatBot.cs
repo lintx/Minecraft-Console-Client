@@ -5,6 +5,7 @@ using System.Text;
 using System.IO;
 using System.Threading;
 using System.Text.RegularExpressions;
+using MinecraftClient.Mapping;
 
 namespace MinecraftClient
 {
@@ -696,5 +697,34 @@ namespace MinecraftClient
             }
             return Handler.SendPluginChannelMessage(channel, data, sendEvenIfNotRegistered);
         }
+
+        public virtual void OnSpawnEntity(int entityId, short type, Guid UUID, Location location) { }
+
+        public virtual void OnEntityMoveLook(int entityId, short dX, short dY, short dZ) { }
+
+        public virtual void OnEntityDestroy(int[] entitys) { }
+
+        public virtual void OnSetSlot(byte windowId, short slot, short itemId, short itemCount) { }
+
+        public virtual void OnUpdateHealth(float health, int food, float foodSaturation) { }
+
+        public virtual void OnHeldItemSlot(short slot) { }
+
+        protected bool HeldItemSlot(short slotId = 0)
+        {
+            return Handler.SendHeldItemSlot(slotId);
+        }
+
+        protected bool UseItem(int hand = 0)
+        {
+            return Handler.SendUseItem(hand);
+        }
+
+        protected bool SendRespawnPacket()
+        {
+            return Handler.SendRespawnPacket();
+        }
+
+        protected int GetProtocolVersion() { return Handler.GetProtocolVersion(); }
     }
 }

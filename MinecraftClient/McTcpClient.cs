@@ -53,6 +53,7 @@ namespace MinecraftClient
         public string GetSessionID() { return sessionid; }
         public Location GetCurrentLocation() { return location; }
         public World GetWorld() { return world; }
+        public int GetProtocolVersion() { return handler.GetProtocolVersion(); }
 
         TcpClient client;
         IMinecraftCom handler;
@@ -120,6 +121,9 @@ namespace MinecraftClient
                     if (Settings.ScriptScheduler_Enabled) { BotLoad(new ChatBots.ScriptScheduler(Settings.ExpandVars(Settings.ScriptScheduler_TasksFile))); }
                     if (Settings.RemoteCtrl_Enabled) { BotLoad(new ChatBots.RemoteControl()); }
                     if (Settings.AutoRespond_Enabled) { BotLoad(new ChatBots.AutoRespond(Settings.AutoRespond_Matches)); }
+                    if (Settings.AutoRespawn_Enabled) { BotLoad(new ChatBots.AutoRespawn()); }
+                    if (Settings.AutoRelogin_Enabled) { BotLoad(new ChatBots.AutoRelogin()); }
+                    if (Settings.AutoFish_Enabled) { BotLoad(new ChatBots.AutoFish()); }
                     //Add your ChatBot here by uncommenting and adapting
                     //BotLoad(new ChatBots.YourBot());
                 }
@@ -451,6 +455,20 @@ namespace MinecraftClient
                 text = ChatParser.ParseText(json, links);
             }
             ConsoleIO.WriteLineFormatted(text, true);
+            if (text.Contains("LinTx")) {
+
+                if (text.Contains("1")) {
+                    handler.SendHeldItemSlot(0);
+                }
+                if (text.Contains("2"))
+                {
+                    handler.SendHeldItemSlot(1);
+                }
+                if (text.Contains("3"))
+                {
+                    handler.SendUseItem();
+                }
+            }
             if (Settings.DisplayChatLinks)
                 foreach (string link in links)
                     ConsoleIO.WriteLineFormatted("§8MCC: Link: " + link, false);
@@ -727,6 +745,64 @@ namespace MinecraftClient
                     bot.OnPluginMessage(channel, data);
                 }
             }
+        }
+
+        public void OnSpawnEntity(int entityId, short type, Guid UUID, Location location)
+        {
+            foreach (ChatBot bot in bots.ToArray())
+            {
+                bot.OnSpawnEntity(entityId, type, UUID, location);
+            }
+        }
+
+        public void OnEntityMoveLook(int entityId, short dX, short dY, short dZ)
+        {
+            foreach (ChatBot bot in bots.ToArray())
+            {
+                bot.OnEntityMoveLook(entityId, dX, dY, dZ);
+            }
+        }
+
+        public void OnEntityDestroy(int[] entitys)
+        {
+            foreach (ChatBot bot in bots.ToArray())
+            {
+                bot.OnEntityDestroy(entitys);
+            }
+        }
+
+        public void OnSetSlot(byte windowId, short slot, short itemId, short itemCount)
+        {
+            foreach (ChatBot bot in bots.ToArray())
+            {
+                bot.OnSetSlot(windowId, slot, itemId, itemCount);
+            }
+        }
+
+        public void OnUpdateHealth(float health, int food, float foodSaturation)
+        {
+            foreach (ChatBot bot in bots.ToArray())
+            {
+                bot.OnUpdateHealth(health, food, foodSaturation);
+            }
+        }
+
+        public void OnHeldItemSlot(short slot)
+        {
+            foreach (ChatBot bot in bots.ToArray())
+            {
+                bot.OnHeldItemSlot(slot);
+            }
+        }
+
+        public bool SendHeldItemSlot(short slotId = 0)
+        {
+            return handler.SendHeldItemSlot(slotId);
+        }
+
+        public bool SendUseItem(int hand = 0)
+        {
+            return handler.SendUseItem(hand);
         }
     }
 }

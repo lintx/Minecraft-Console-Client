@@ -84,5 +84,11 @@ namespace MinecraftClient.Protocol
         /// <param name="data">packet Data</param>
         /// <returns>True if message was successfully sent</returns>
         bool SendPluginChannelPacket(string channel, byte[] data);
+
+        bool SendHeldItemSlot(short slotId = 0);
+
+        bool SendUseItem(int hand = 0);
+
+        int GetProtocolVersion();
     }
 }

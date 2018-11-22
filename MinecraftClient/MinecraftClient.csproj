@@ -75,6 +75,9 @@
     <Compile Include="AutoTimeout.cs" />
     <Compile Include="ChatBots\Alerts.cs" />
     <Compile Include="ChatBots\AntiAFK.cs" />
+    <Compile Include="ChatBots\AutoFish.cs" />
+    <Compile Include="ChatBots\AutoRelogin.cs" />
+    <Compile Include="ChatBots\AutoRespawn.cs" />
     <Compile Include="ChatBots\AutoRespond.cs" />
     <Compile Include="ChatBots\AutoRelog.cs" />
     <Compile Include="ChatBots\ChatLog.cs" />

@@ -72,6 +72,21 @@ namespace MinecraftClient.ChatBots
             }
         }
 
+        public static string filter2str(MessageFilter filter)
+        {
+            switch (filter)
+            { 
+                case MessageFilter.AllMessages:
+                    return "messages";
+                case MessageFilter.OnlyChat:
+                    return "chat";
+                case MessageFilter.OnlyWhispers:
+                    return "private";
+                default:
+                    return "all";
+            }
+        }
+
         public override void GetText(string text)
         {
             text = GetVerbatim(text);

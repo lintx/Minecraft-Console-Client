@@ -47,6 +47,8 @@ namespace MinecraftClient.Protocol.Handlers
             this.c = Client;
         }
 
+        public int GetProtocolVersion() { return protocolversion; }
+
         private void Updater()
         {
             try
@@ -663,6 +665,16 @@ namespace MinecraftClient.Protocol.Handlers
             }
             catch (SocketException) { return false; }
             catch (System.IO.IOException) { return false; }
+        }
+
+        public bool SendHeldItemSlot(short slotId = 0)
+        {
+            return false;
+        }
+
+        public bool SendUseItem(int hand = 0)
+        {
+            return false;
         }
 
         IEnumerable<string> IAutoComplete.AutoComplete(string BehindCursor)

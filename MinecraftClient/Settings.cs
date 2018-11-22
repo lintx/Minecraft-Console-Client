@@ -27,9 +27,9 @@ namespace MinecraftClient
         public static string Password = "";
         public static string ServerIP = "";
         public static ushort ServerPort = 25565;
-        public static string ServerVersion = "";
+        public static string ServerVersion = "auto";
         public static string SingleCommand = "";
-        public static string ConsoleTitle = "";
+        public static string ConsoleTitle = "%username%@%serverip% - Minecraft Console Client";
 
         //Proxy Settings
         public static bool ProxyEnabledLogin = false;
@@ -42,12 +42,12 @@ namespace MinecraftClient
 
         //Minecraft Settings
         public static bool MCSettings_Enabled = true;
-        public static string MCSettings_Locale = "en_US";
+        public static string MCSettings_Locale = "zh_CN";
         public static byte MCSettings_Difficulty = 0;
         public static byte MCSettings_RenderDistance = 8;
         public static byte MCSettings_ChatMode = 0;
         public static bool MCSettings_ChatColors = true;
-        public static byte MCSettings_MainHand = 0;
+        public static byte MCSettings_MainHand = 1;
         public static bool MCSettings_Skin_Hat = true;
         public static bool MCSettings_Skin_Cape = true;
         public static bool MCSettings_Skin_Jacket = false;
@@ -78,7 +78,7 @@ namespace MinecraftClient
         public static TimeSpan splitMessageDelay = TimeSpan.FromSeconds(2);
         public static List<string> Bots_Owners = new List<string>();
         public static TimeSpan botMessageDelay = TimeSpan.FromSeconds(2);
-        public static string Language = "en_GB";
+        public static string Language = "zh_CN";
         public static bool interactiveMode = true;
         public static char internalCmdChar = '/';
         public static bool playerHeadAsIcon = false;
@@ -94,6 +94,8 @@ namespace MinecraftClient
         public static bool DebugMessages = false;
         public static bool ResolveSrvRecords = true;
         public static bool ResolveSrvRecordsShortTimeout = true;
+        public static string AccountListFile = "accounts.txt";
+        public static string ServerListFile = "servers.txt";
 
         //AntiAFK Settings
         public static bool AntiAFK_Enabled = false;
@@ -140,6 +142,9 @@ namespace MinecraftClient
 
         //Chat Message Parsing
         public static bool ChatFormat_Builtins = true;
+        public static string ChatFormat_PublicString = "";
+        public static string ChatFormat_PrivateString = "";
+        public static string ChatFormat_TeleportRequestString = "";
         public static Regex ChatFormat_Public = null;
         public static Regex ChatFormat_Private = null;
         public static Regex ChatFormat_TeleportRequest = null;
@@ -148,12 +153,22 @@ namespace MinecraftClient
         public static bool AutoRespond_Enabled = false;
         public static string AutoRespond_Matches = "matches.ini";
 
+        public static bool AutoRespawn_Enabled = false;
+
+        public static bool AutoRelogin_Enabled = false;
+        public static int AutoRelogin_Delay = 30;
+        public static int AutoRelogin_Retries = 3;
+
+        public static bool AutoFish_Enabled = false;
+        public static int AutoFish_Delay = 1;
+        public static int AutoFish_Timeout = 100;
+
         //Custom app variables and Minecraft accounts
         private static readonly Dictionary<string, object> AppVars = new Dictionary<string, object>();
         private static readonly Dictionary<string, KeyValuePair<string, string>> Accounts = new Dictionary<string, KeyValuePair<string, string>>();
         private static readonly Dictionary<string, KeyValuePair<string, ushort>> Servers = new Dictionary<string, KeyValuePair<string, ushort>>();
 
-        private enum ParseMode { Default, Main, AppVars, Proxy, MCSettings, AntiAFK, Hangman, Alerts, ChatLog, AutoRelog, ScriptScheduler, RemoteControl, ChatFormat, AutoRespond };
+        private enum ParseMode { Default, Main, AppVars, Proxy, MCSettings, AntiAFK, Hangman, Alerts, ChatLog, AutoRelog, ScriptScheduler, RemoteControl, ChatFormat, AutoRespond, AutoRespawn, AutoRelogin, AutoFish };
 
         /// <summary>
         /// Load settings from the give INI file
@@ -193,6 +208,9 @@ namespace MinecraftClient
                                     case "appvars": pMode = ParseMode.AppVars; break;
                                     case "autorespond": pMode = ParseMode.AutoRespond; break;
                                     case "chatformat": pMode = ParseMode.ChatFormat; break;
+                                    case "autorespawn": pMode = ParseMode.AutoRespawn; break;
+                                    case "autorelogin": pMode = ParseMode.AutoRelogin; break;
+                                    case "autofish": pMode = ParseMode.AutoFish; break;
                                     default: pMode = ParseMode.Default; break;
                                 }
                             }
@@ -254,6 +272,7 @@ namespace MinecraftClient
                                                     break;
 
                                                 case "accountlist":
+                                                    AccountListFile = argValue;
                                                     if (File.Exists(argValue))
                                                     {
                                                         foreach (string account_line in File.ReadAllLines(argValue))
@@ -271,6 +290,7 @@ namespace MinecraftClient
                                                     break;
 
                                                 case "serverlist":
+                                                    ServerListFile = argValue;
                                                     if (File.Exists(argValue))
                                                     {
                                                         //Backup current server info
@@ -393,9 +413,18 @@ namespace MinecraftClient
                                             switch (argName.ToLower())
                                             {
                                                 case "builtins": ChatFormat_Builtins = str2bool(argValue); break;
-                                                case "public": ChatFormat_Public = new Regex(argValue); break;
-                                                case "private": ChatFormat_Private = new Regex(argValue); break;
-                                                case "tprequest": ChatFormat_TeleportRequest = new Regex(argValue); break;
+                                                case "public":
+                                                    ChatFormat_Public = new Regex(argValue);
+                                                    ChatFormat_PublicString = argValue;
+                                                    break;
+                                                case "private":
+                                                    ChatFormat_Private = new Regex(argValue);
+                                                    ChatFormat_PrivateString = argValue;
+                                                    break;
+                                                case "tprequest":
+                                                    ChatFormat_TeleportRequest = new Regex(argValue);
+                                                    ChatFormat_TeleportRequestString = argValue;
+                                                    break;
                                             }
                                             break;
 
@@ -493,6 +522,28 @@ namespace MinecraftClient
                                                     break;
                                             }
                                             break;
+                                        case ParseMode.AutoRespawn:
+                                            switch (argName.ToLower())
+                                            {
+                                                case "enabled": AutoRespawn_Enabled = str2bool(argValue); break;
+                                            }
+                                            break;
+                                        case ParseMode.AutoRelogin:
+                                            switch (argName.ToLower())
+                                            {
+                                                case "enabled": AutoRelogin_Enabled = str2bool(argValue); break;
+                                                case "delay": AutoRelogin_Delay = str2int(argValue); break;
+                                                case "retries": AutoRelogin_Retries = str2int(argValue); break;
+                                            }
+                                            break;
+                                        case ParseMode.AutoFish:
+                                            switch (argName.ToLower())
+                                            {
+                                                case "enabled": AutoFish_Enabled = str2bool(argValue); break;
+                                                case "delay": AutoFish_Delay = str2int(argValue); break;
+                                                case "timeout": AutoFish_Timeout = str2int(argValue); break;
+                                            }
+                                            break;
                                     }
                                 }
                             }
@@ -518,35 +569,35 @@ namespace MinecraftClient
                 + "# Leave blank to prompt user on startup\r\n"
                 + "# Use \"-\" as password for offline mode\r\n"
                 + "\r\n"
-                + "login=\r\n"
-                + "password=\r\n"
-                + "serverip=\r\n"
+                + "login=" + Login + "\r\n"
+                + "password=" + Password +"\r\n"
+                + "serverip=" + (ServerPort==25565?ServerIP:ServerIP+":"+ServerPort) +"\r\n"
                 + "\r\n"
                 + "# Advanced settings\r\n"
                 + "\r\n"
-                + "language=en_GB\r\n"
-                + "consoletitle=%username%@%serverip% - Minecraft Console Client\r\n"
-                + "internalcmdchar=slash              # Use 'none', 'slash' or 'backslash'\r\n"
-                + "splitmessagedelay=2                # Seconds between each part of a long message\r\n"
-                + "botowners=Player1,Player2,Player3  # Use name list or myfile.txt with one name per line\r\n"
-                + "botmessagedelay=2                  # Seconds to delay between message a bot makes to avoid accidental spam\r\n"
-                + "mcversion=auto                     # Use 'auto' or '1.X.X' values\r\n"
-                + "brandinfo=mcc                      # Use 'mcc','vanilla', or 'none'\r\n"
-                + "chatbotlogfile=                    # Leave empty for no logfile\r\n"
-                + "privatemsgscmdname=tell            # Used by RemoteControl bot\r\n"
-                + "showsystemmessages=true            # System messages for server ops\r\n"
-                + "showxpbarmessages=true             # Messages displayed above xp bar\r\n"
-                + "showchatlinks=true                 # Show links embedded in chat messages\r\n"
-                + "terrainandmovements=false          # Uses more ram, cpu, bandwidth\r\n"
-                + "sessioncache=disk                  # How to retain session tokens. Use 'none', 'memory' or 'disk'\r\n"
-                + "resolvesrvrecords=fast             # Use 'false', 'fast' (5s timeout), or 'true'. Required for joining some servers.\r\n"
-                + "accountlist=accounts.txt           # See README > 'Servers and Accounts file' for more info about this file\r\n"
-                + "serverlist=servers.txt             # See README > 'Servers and Accounts file' for more info about this file\r\n"
-                + "playerheadicon=true                # Only works on Windows XP-8 or Windows 10 with old console\r\n"
-                + "exitonfailure=false                # Disable pauses on error, for using MCC in non-interactive scripts\r\n"
-                + "debugmessages=false                # Please enable this before submitting bug reports. Thanks!\r\n"
-                + "scriptcache=true                   # Cache compiled scripts for faster load on low-end devices\r\n"
-                + "timestamps=false                   # Prepend timestamps to chat messages\r\n"
+                + "language=" + Language +"\r\n"
+                + "consoletitle=" + ConsoleTitle +"\r\n"
+                + "internalcmdchar=" + internalCmdChar2str() +"              # Use 'none', 'slash' or 'backslash'\r\n"
+                + "splitmessagedelay=" + splitMessageDelay.TotalSeconds +"                # Seconds between each part of a long message\r\n"
+                + "botowners=" + string.Join(",",Bots_Owners.ToArray()) +"  # Use name list or myfile.txt with one name per line\r\n"
+                + "botmessagedelay=" + botMessageDelay.TotalSeconds +"                  # Seconds to delay between message a bot makes to avoid accidental spam\r\n"
+                + "mcversion=" + ServerVersion +"                     # Use 'auto' or '1.X.X' values\r\n"
+                + "brandinfo=" + (BrandInfo=="vanilla"?"vanilla":"mcc") + "                      # Use 'mcc','vanilla', or 'none'\r\n"
+                + "chatbotlogfile="+chatbotLogFile+"                    # Leave empty for no logfile\r\n"
+                + "privatemsgscmdname="+PrivateMsgsCmdName+"            # Used by RemoteControl bot\r\n"
+                + "showsystemmessages=" + bool2str(DisplaySystemMessages) + "            # System messages for server ops\r\n"
+                + "showxpbarmessages=" + bool2str(DisplayXPBarMessages) +"             # Messages displayed above xp bar\r\n"
+                + "showchatlinks=" + bool2str(DisplayChatLinks) +"                 # Show links embedded in chat messages\r\n"
+                + "terrainandmovements=" + bool2str(TerrainAndMovements) +"          # Uses more ram, cpu, bandwidth\r\n"
+                + "sessioncache=" + sessioncache2str() +"                  # How to retain session tokens. Use 'none', 'memory' or 'disk'\r\n"
+                + "resolvesrvrecords=" + bool2str(ResolveSrvRecords) +"             # Use 'false', 'fast' (5s timeout), or 'true'. Required for joining some servers.\r\n"
+                + "accountlist=" + AccountListFile +"           # See README > 'Servers and Accounts file' for more info about this file\r\n"
+                + "serverlist=" + ServerListFile +"             # See README > 'Servers and Accounts file' for more info about this file\r\n"
+                + "playerheadicon=" + bool2str(playerHeadAsIcon) +"                # Only works on Windows XP-8 or Windows 10 with old console\r\n"
+                + "exitonfailure=" + bool2str(!interactiveMode) +"                # Disable pauses on error, for using MCC in non-interactive scripts\r\n"
+                + "debugmessages=" + bool2str(DebugMessages) +"                # Please enable this before submitting bug reports. Thanks!\r\n"
+                + "scriptcache=" + bool2str(CacheScripts) +"                   # Cache compiled scripts for faster load on low-end devices\r\n"
+                + "timestamps=" + bool2str(ConsoleIO.EnableTimestamps) +"                   # Prepend timestamps to chat messages\r\n"
                 + "\r\n"
                 + "[AppVars]\r\n"
                 + "# yourvar=yourvalue\r\n"
@@ -554,78 +605,174 @@ namespace MinecraftClient
                 + "# %username% and %serverip% are reserved variables.\r\n"
                 + "\r\n"
                 + "[Proxy]\r\n"
-                + "enabled=false                      # Use 'false', 'true', or 'login' for login only\r\n"
-                + "type=HTTP                          # Supported types: HTTP, SOCKS4, SOCKS4a, SOCKS5\r\n"
-                + "server=0.0.0.0:0000                # Proxy server must allow HTTPS for login, and non-443 ports for playing\r\n"
-                + "username=                          # Only required for password-protected proxies\r\n"
-                + "password=                          # Only required for password-protected proxies\r\n"
+                + "enabled=" + bool2str(ProxyEnabledLogin) +"                      # Use 'false', 'true', or 'login' for login only\r\n"
+                + "type=" + proxyType2string() +"                          # Supported types: HTTP, SOCKS4, SOCKS4a, SOCKS5\r\n"
+                + "server=" + (ProxyPort==80?ProxyHost:ProxyHost+":"+ProxyPort) +"                # Proxy server must allow HTTPS for login, and non-443 ports for playing\r\n"
+                + "username=" + ProxyUsername +"                          # Only required for password-protected proxies\r\n"
+                + "password=" + ProxyPassword +"                          # Only required for password-protected proxies\r\n"
                 + "\r\n"
                 + "[ChatFormat]\r\n"
                 + "# Do not forget to uncomment (remove '#') these settings if modifying them\r\n"
-                + "builtins=true                      # MCC built-in support for common message formats\r\n"
-                + "# public=^<([a-zA-Z0-9_]+)> (.+)$\r\n"
-                + "# private=^([a-zA-Z0-9_]+) whispers to you: (.+)$\r\n"
-                + "# tprequest=^([a-zA-Z0-9_]+) has requested (?:to|that you) teleport to (?:you|them)\\.$\r\n"
+                + "builtins=" + bool2str(ChatFormat_Builtins) +"                      # MCC built-in support for common message formats\r\n"
+                + "public=" + ChatFormat_PublicString +"               #^<([a-zA-Z0-9_]+)> (.+)$\r\n"
+                + "private=" + ChatFormat_PrivateString +"                              #^([a-zA-Z0-9_]+) whispers to you: (.+)$\r\n"
+                + "tprequest=" + ChatFormat_TeleportRequestString +"                #^([a-zA-Z0-9_]+) has requested (?:to|that you) teleport to (?:you|them)\\.$\r\n"
                 + "\r\n"
                 + "[MCSettings]\r\n"
-                + "enabled=true                       # If disabled, settings below are not sent to the server\r\n"
-                + "locale=en_US                       # Use any language implemented in Minecraft\r\n"
-                + "renderdistance=medium              # Use tiny, short, medium, far, or chunk amount [0 - 255]\r\n"
-                + "difficulty=normal                  # MC 1.7- difficulty. peaceful, easy, normal, difficult\r\n"
-                + "chatmode=enabled                   # Use 'enabled', 'commands', or 'disabled'. Allows to mute yourself...\r\n"
-                + "chatcolors=true                    # Allows disabling chat colors server-side\r\n"
-                + "main_hand=left                     # MC 1.9+ main hand. left or right\r\n"
-                + "skin_cape=true\r\n"
-                + "skin_hat=true\r\n"
-                + "skin_jacket=false\r\n"
-                + "skin_sleeve_left=false\r\n"
-                + "skin_sleeve_right=false\r\n"
-                + "skin_pants_left=false\r\n"
-                + "skin_pants_right=false"
+                + "enabled=" + bool2str(MCSettings_Enabled) +"                       # If disabled, settings below are not sent to the server\r\n"
+                + "locale=" + MCSettings_Locale +"                       # Use any language implemented in Minecraft\r\n"
+                + "renderdistance=" + renderdistance2string() +"              # Use tiny, short, medium, far, or chunk amount [0 - 255]\r\n"
+                + "difficulty=" + difficulty2string() +"                  # MC 1.7- difficulty. peaceful, easy, normal, difficult\r\n"
+                + "chatmode=" + chatmode2string() +"                   # Use 'enabled', 'commands', or 'disabled'. Allows to mute yourself...\r\n"
+                + "chatcolors=" + bool2str(MCSettings_ChatColors) +"                    # Allows disabling chat colors server-side\r\n"
+                + "main_hand=" + (MCSettings_MainHand==0?"left":"right") +"                    # MC 1.9+ main hand. left or right\r\n"
+                + "skin_cape=" + bool2str(MCSettings_Skin_Cape) +"\r\n"
+                + "skin_hat=" + bool2str(MCSettings_Skin_Hat) +"\r\n"
+                + "skin_jacket=" + bool2str(MCSettings_Skin_Jacket) +"\r\n"
+                + "skin_sleeve_left=" + bool2str(MCSettings_Skin_Sleeve_Left) +"\r\n"
+                + "skin_sleeve_right=" + bool2str(MCSettings_Skin_Sleeve_Right) +"\r\n"
+                + "skin_pants_left=" + bool2str(MCSettings_Skin_Pants_Left) +"\r\n"
+                + "skin_pants_right=" + bool2str(MCSettings_Skin_Pants_Right) +""
                 + "\r\n"
                 + "# Bot Settings\r\n"
                 + "\r\n"
                 + "[Alerts]\r\n"
-                + "enabled=false\r\n"
-                + "alertsfile=alerts.txt\r\n"
-                + "excludesfile=alerts-exclude.txt\r\n"
-                + "beeponalert=true\r\n"
+                + "enabled=" + bool2str(Alerts_Enabled) +"\r\n"
+                + "alertsfile=" + Alerts_MatchesFile +"\r\n"
+                + "excludesfile=" + Alerts_ExcludesFile +"\r\n"
+                + "beeponalert=" + bool2str(Alerts_Beep_Enabled) +"\r\n"
                 + "\r\n"
                 + "[AntiAFK]\r\n"
-                + "enabled=false\r\n"
-                + "delay=600 #10 = 1s\r\n"
-                + "command=/ping\r\n"
+                + "enabled=" + bool2str(AntiAFK_Enabled) +"\r\n"
+                + "delay=" + AntiAFK_Delay +" #10 = 1s\r\n"
+                + "command=" + AntiAFK_Command +"\r\n"
                 + "\r\n"
                 + "[AutoRelog]\r\n"
-                + "enabled=false\r\n"
-                + "delay=10\r\n"
-                + "retries=3 #-1 = unlimited\r\n"
-                + "kickmessagesfile=kickmessages.txt\r\n"
+                + "enabled=" + bool2str(AutoRelog_Enabled) +"\r\n"
+                + "delay=" + AutoRelog_Delay +"\r\n"
+                + "retries=" + AutoRelog_Retries +" #-1 = unlimited\r\n"
+                + "kickmessagesfile=" + AutoRelog_KickMessagesFile +"\r\n"
                 + "\r\n"
                 + "[ChatLog]\r\n"
-                + "enabled=false\r\n"
-                + "timestamps=true\r\n"
-                + "filter=messages\r\n"
-                + "logfile=chatlog-%username%-%serverip%.txt\r\n"
+                + "enabled=" + bool2str(ChatLog_Enabled) +"\r\n"
+                + "timestamps=" + bool2str(ChatLog_DateTime) +"\r\n"
+                + "filter=" + ChatBots.ChatLog.filter2str(ChatLog_Filter) +"\r\n"
+                + "logfile=" + ChatLog_File +"\r\n"
                 + "\r\n"
                 + "[Hangman]\r\n"
-                + "enabled=false\r\n"
-                + "english=true\r\n"
-                + "wordsfile=hangman-en.txt\r\n"
-                + "fichiermots=hangman-fr.txt\r\n"
+                + "enabled=" + bool2str(Hangman_Enabled) +"\r\n"
+                + "english=" + bool2str(Hangman_English) +"\r\n"
+                + "wordsfile=" + Hangman_FileWords_EN +"\r\n"
+                + "fichiermots=" + Hangman_FileWords_FR +"\r\n"
                 + "\r\n"
                 + "[ScriptScheduler]\r\n"
-                + "enabled=false\r\n"
-                + "tasksfile=tasks.ini\r\n"
+                + "enabled=" + bool2str(ScriptScheduler_Enabled) +"\r\n"
+                + "tasksfile=" + ScriptScheduler_TasksFile +"\r\n"
                 + "\r\n"
                 + "[RemoteControl]\r\n"
-                + "enabled=false\r\n"
-                + "autotpaccept=true\r\n"
-                + "tpaccepteveryone=false\r\n"
+                + "enabled=" + bool2str(RemoteCtrl_Enabled) +"\r\n"
+                + "autotpaccept=" + bool2str(RemoteCtrl_AutoTpaccept) +"\r\n"
+                + "tpaccepteveryone=" + bool2str(RemoteCtrl_AutoTpaccept_Everyone) +"\r\n"
                 + "\r\n"
                 + "[AutoRespond]\r\n"
-                + "enabled=false\r\n"
-                + "matchesfile=matches.ini\r\n", Encoding.UTF8);
+                + "enabled=" + bool2str(AutoRespond_Enabled) +"\r\n"
+                + "matchesfile=" + AutoRespond_Matches +"\r\n"
+                + "\r\n"
+                + "[AutoRespawn]\r\n"
+                + "enabled=" + bool2str(AutoRespawn_Enabled) +"\r\n"
+                + "\r\n"
+                + "[AutoRelogin]\r\n"
+                + "enabled=" + bool2str(AutoRelogin_Enabled) +"\r\n"
+                + "delay=" + AutoRelogin_Delay +"\r\n"
+                + "retries=" + AutoRelogin_Retries +"\r\n"
+                + "\r\n"
+                + "[AutoFish]\r\n"
+                + "enabled=" + bool2str(AutoFish_Enabled) +"\r\n"
+                + "delay=" + AutoFish_Delay +"\r\n"
+                + "timeout=" + AutoFish_Timeout +"\r\n", Encoding.UTF8);
+        }
+
+        public static string internalCmdChar2str()
+        {
+            switch (internalCmdChar) { 
+                case ' ':
+                    return "none";
+                case '\\':
+                    return "backslash";
+                default:
+                    return "slash";
+            }
+        }
+
+        public static string sessioncache2str()
+        {
+            switch (SessionCaching) { 
+                case CacheType.None:
+                    return "none";
+                case CacheType.Memory:
+                    return "memory";
+                default:
+                    return "disk";
+            }
+        }
+
+        public static string proxyType2string()
+        {
+            switch (proxyType) { 
+                case Proxy.ProxyHandler.Type.SOCKS4:
+                    return "socks4";
+                case Proxy.ProxyHandler.Type.SOCKS4a:
+                    return "socks4a";
+                case Proxy.ProxyHandler.Type.SOCKS5:
+                    return "socks5";
+                default:
+                    return "http";
+            }
+        }
+
+        public static string difficulty2string()
+        {
+            switch(MCSettings_Difficulty){
+                case 0:
+                    return "peaceful";
+                case 1:
+                    return "easy";
+                case 3:
+                    return "difficult";
+                default:
+                    return "normal";
+            }
+        }
+
+        public static string renderdistance2string()
+        {
+            switch (MCSettings_RenderDistance) { 
+                case 16:
+                    return "far";
+                case 8:
+                    return "medium";
+                case 4:
+                    return "short";
+                default:
+                    return "tiny";
+            }
+        }
+
+        public static string chatmode2string()
+        {
+            switch (MCSettings_ChatMode) { 
+                case 0:
+                    return "enabled";
+                case 1:
+                    return "commands";
+                default:
+                    return "disabled";
+            }
+        }
+
+        public static string bool2str(bool val)
+        {
+            return val ? "true" : "false";
         }
 
         /// <summary>
